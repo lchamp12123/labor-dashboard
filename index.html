@@ -409,7 +409,7 @@ let nbTrendChart = null;
 let activeRange  = '1M';
 
 // ── SHAREPOINT CSV URL ─────────────────────────────────────────────────────
-const SHAREPOINT_CSV = "https://netorg973363.sharepoint.com/sites/DrillCoolSystems/_api/web/GetFileByServerRelativeUrl('/sites/DrillCoolSystems/Shared%20Documents/Formula/LaborTracking/outputs/labor_master.csv')/$value";
+const SHAREPOINT_CSV = "https://raw.githubusercontent.com/lchamp12123/labor-dashboard/main/labor_master.csv";
 
 function parseRows(res) {
   allRows = res.data.map(r => ({
