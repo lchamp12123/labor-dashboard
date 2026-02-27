@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta http-equiv="Content-Security-Policy" content="frame-ancestors *;">
 <title>Drill Cool Systems — Labor KPI Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -269,6 +270,43 @@
   }
   .empty-icon { font-size: 26px; opacity: .2; color: var(--blue); }
 
+  /* CUSTOM DATE RANGE */
+  .custom-range-wrap {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  }
+  .custom-range-wrap label {
+    font-family: var(--mono); font-size: 10px; color: var(--muted);
+    letter-spacing: 1px; text-transform: uppercase;
+  }
+  .date-input {
+    font-family: var(--mono); font-size: 11px;
+    background: var(--surface2); border: 1px solid var(--border2);
+    color: var(--text); padding: 4px 8px; border-radius: 2px;
+    color-scheme: dark;
+  }
+  .date-input:focus { outline: none; border-color: var(--blue); }
+  .apply-btn {
+    font-family: var(--head); font-size: 11px; font-weight: 500;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    background: var(--surface3); border: 1px solid var(--border2);
+    color: var(--text2); padding: 4px 12px; cursor: pointer;
+    border-radius: 2px; transition: all .12s;
+  }
+  .apply-btn:hover { background: var(--blue2); border-color: var(--blue2); color: var(--white); }
+
+  /* SERIES TOGGLES */
+  .toggle-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .series-toggle {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 10px; color: var(--text2);
+    letter-spacing: .5px; cursor: pointer; user-select: none;
+    background: var(--surface2); border: 1px solid var(--border);
+    padding: 4px 10px; border-radius: 2px; transition: all .12s;
+  }
+  .series-toggle:hover { border-color: var(--blue); }
+  .series-toggle.off { opacity: .4; }
+  .toggle-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
   @media (max-width: 1200px) { .cards { grid-template-columns: repeat(3, 1fr); } .two-col { grid-template-columns: 1fr; } }
   @media (max-width: 700px)  { .cards { grid-template-columns: repeat(2, 1fr); } main { padding: 12px; } header { padding: 0 14px; } }
 </style>
@@ -329,83 +367,98 @@
     </div>
   </div>
 
-  <!-- S2 -->
-  <div class="section-label"><span class="sec-num">02</span> Billable Utilization Trend</div>
-  <div class="chart-panel">
-    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
-      <div class="panel-title"><div class="panel-title-bar"></div>Weekly Billable % vs Target</div>
-      <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
-        <div class="target-row">
-          <label>Target %</label>
-          <input class="target-input" type="number" id="target-pct" value="75" min="0" max="100"/>
-        </div>
-        <div class="slicer-row">
-          <button class="slice-btn" data-range="1W">1W</button>
-          <button class="slice-btn" data-range="2W">2W</button>
-          <button class="slice-btn active" data-range="1M">1M</button>
-          <button class="slice-btn" data-range="3M">3M</button>
-          <button class="slice-btn" data-range="6M">6M</button>
-          <button class="slice-btn" data-range="YTD">YTD</button>
-          <button class="slice-btn" data-range="1Y">1Y</button>
-          <button class="slice-btn" data-range="ALL">ALL</button>
-        </div>
+  <!-- S2: Stacked Area — Time slicer lives here and controls all sections -->
+  <div class="section-label">
+    <span class="sec-num">02</span> Hours Overview
+    <div style="margin-left:auto; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+      <div class="slicer-row">
+        <button class="slice-btn" data-range="1W">1W</button>
+        <button class="slice-btn" data-range="2W">2W</button>
+        <button class="slice-btn active" data-range="1M">1M</button>
+        <button class="slice-btn" data-range="3M">3M</button>
+        <button class="slice-btn" data-range="6M">6M</button>
+        <button class="slice-btn" data-range="YTD">YTD</button>
+        <button class="slice-btn" data-range="1Y">1Y</button>
+        <button class="slice-btn" data-range="ALL">ALL</button>
+        <button class="slice-btn" data-range="CUSTOM" id="custom-btn">Custom</button>
+      </div>
+      <div class="custom-range-wrap" id="custom-inputs" style="display:none;">
+        <label>From</label>
+        <input class="date-input" type="date" id="custom-start"/>
+        <label>To</label>
+        <input class="date-input" type="date" id="custom-end"/>
+        <button class="apply-btn" onclick="applyCustomRange()">Apply</button>
       </div>
     </div>
-    <div style="height:280px; position:relative;">
-      <canvas id="trend-chart"></canvas>
-      <div class="empty-state" id="trend-empty"><div class="empty-icon">◈</div><div>Load labor_master.csv to render</div></div>
+  </div>
+  <div class="chart-panel">
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+      <div class="panel-title"><div class="panel-title-bar"></div>Hours Overview</div>
+    </div>
+    <div class="toggle-row" id="series-toggles">
+      <div class="series-toggle" data-series="0" onclick="toggleSeries(0)"><div class="toggle-dot" style="background:#ffffff"></div>Total</div>
+      <div class="series-toggle" data-series="1" onclick="toggleSeries(1)"><div class="toggle-dot" style="background:#4a8fd4"></div>Billable</div>
+      <div class="series-toggle" data-series="2" onclick="toggleSeries(2)"><div class="toggle-dot" style="background:#64748b"></div>Non-Billable</div>
+      <div class="series-toggle off" data-series="3" onclick="toggleSeries(3)"><div class="toggle-dot" style="background:#e05a5a"></div>Billable OT</div>
+      <div class="series-toggle off" data-series="4" onclick="toggleSeries(4)"><div class="toggle-dot" style="background:#c8943a"></div>Non-Billable OT</div>
+    </div>
+    <div style="height:300px; position:relative;">
+      <canvas id="stacked-chart" style="display:none"></canvas>
+      <div class="empty-state" id="stacked-empty"><div class="empty-icon">◈</div><div>Load labor_master.csv to render</div></div>
     </div>
   </div>
 
-  <!-- S3 + S4 -->
-  <div class="two-col" style="margin-top:12px;">
+  <!-- S3: Billable % vs Target -->
+  <div class="section-label" style="margin-top:22px;"><span class="sec-num">03</span> Billable Utilization Trend</div>
+  <div class="chart-panel">
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+      <div class="panel-title"><div class="panel-title-bar"></div>Billable % vs Target</div>
+      <div class="target-row">
+        <label>Target %</label>
+        <input class="target-input" type="number" id="target-pct" value="75" min="0" max="100"/>
+      </div>
+    </div>
+    <div style="height:260px; position:relative;">
+      <canvas id="trend-chart" style="display:none"></canvas>
+      <div class="empty-state" id="trend-empty"><div class="empty-icon">◈</div><div>Awaiting data</div></div>
+    </div>
+  </div>
 
-    <!-- S3 -->
+  <!-- S4: Two col — Billable Jobs + Non-Billable Breakdown -->
+  <div class="section-label" style="margin-top:22px;"><span class="sec-num">04</span> Job Breakdown</div>
+  <div class="two-col">
+
+    <!-- S4 Left: Top Billable Jobs -->
     <div class="chart-panel">
-      <div class="section-label" style="margin-top:0"><span class="sec-num">03</span> Top Billable Jobs</div>
+      <div class="panel-title" style="margin-bottom:14px;"><div class="panel-title-bar"></div>Top Billable Jobs</div>
       <div id="jobs-table-wrap">
         <div class="empty-state"><div class="empty-icon">◈</div><div>Awaiting data</div></div>
       </div>
     </div>
 
-    <!-- S4 split: chart top, table bottom -->
+    <!-- S4 Right: Non-Billable Phase Bar + Top Non-Billable Jobs -->
     <div class="chart-panel">
-      <div class="section-label" style="margin-top:0"><span class="sec-num">04</span> Non-Billable Breakdown</div>
-
-      <!-- top: phase bar chart -->
-      <div class="panel-title" style="margin-bottom:14px;"><div class="panel-title-bar"></div>Hours by Phase Code</div>
+      <div class="panel-title" style="margin-bottom:14px;"><div class="panel-title-bar"></div>Non-Billable by Phase Code</div>
       <div style="height:200px; position:relative;">
         <canvas id="nb-chart" style="display:none"></canvas>
         <div class="empty-state" id="nb-empty"><div class="empty-icon">◈</div><div>Awaiting data</div></div>
       </div>
-
       <div class="panel-divider"></div>
-
-      <!-- bottom: weekly non-billable trend -->
-      <div class="panel-title" style="margin-bottom:14px;"><div class="panel-title-bar"></div>Weekly Non-Billable Hours Trend</div>
-      <div style="height:180px; position:relative;">
-        <canvas id="nb-trend-chart" style="display:none"></canvas>
-        <div class="empty-state" id="nb-trend-empty"><div class="empty-icon">◈</div><div>Awaiting data</div></div>
+      <div class="panel-title" style="margin-bottom:14px;"><div class="panel-title-bar"></div>Top Non-Billable Jobs</div>
+      <div id="nb-jobs-table-wrap">
+        <div class="empty-state"><div class="empty-icon">◈</div><div>Awaiting data</div></div>
       </div>
     </div>
 
-  </div>
-
-  <!-- S5 -->
-  <div class="section-label"><span class="sec-num">05</span> Top Non-Billable Jobs</div>
-  <div class="chart-panel">
-    <div id="nb-jobs-table-wrap">
-      <div class="empty-state"><div class="empty-icon">◈</div><div>Awaiting data</div></div>
-    </div>
   </div>
 
 </main>
 
 <script>
-let allRows = [];
+let allRows      = [];
+let stackedChart = null;
 let trendChart   = null;
 let nbChart      = null;
-let nbTrendChart = null;
 let activeRange  = '1M';
 
 // ── SHAREPOINT CSV URL ─────────────────────────────────────────────────────
@@ -476,8 +529,19 @@ function loadFromFile(file) {
 }
 
 // ── RANGE FILTER ───────────────────────────────────────────────────────────
+let customStartDate = null;
+let customEndDate   = null;
+
 function filterByRange(rows, range) {
   if (!rows.length) return rows;
+  if (range === 'CUSTOM') {
+    if (!customStartDate && !customEndDate) return rows;
+    return rows.filter(r => {
+      if (customStartDate && r.workDate < customStartDate) return false;
+      if (customEndDate   && r.workDate > customEndDate)   return false;
+      return true;
+    });
+  }
   const maxDate = new Date(Math.max(...rows.map(r => r.workDate)));
   const y = maxDate.getFullYear(), m = maxDate.getMonth(), d = maxDate.getDate();
   let cutoff;
@@ -490,6 +554,24 @@ function filterByRange(rows, range) {
   else if (range === '1Y')  cutoff = new Date(y - 1, m, d);
   else return rows;
   return rows.filter(r => r.workDate >= cutoff);
+}
+
+// Returns number of days in the current active range
+function getRangeDays() {
+  if (activeRange === 'CUSTOM') {
+    if (customStartDate && customEndDate) {
+      return Math.round((customEndDate - customStartDate) / 86400000);
+    }
+    return 999;
+  }
+  if (activeRange === '1W')  return 7;
+  if (activeRange === '2W')  return 14;
+  if (activeRange === '1M')  return 30;
+  if (activeRange === '3M')  return 90;
+  if (activeRange === '6M')  return 180;
+  if (activeRange === 'YTD') return Math.round((new Date() - new Date(new Date().getFullYear(), 0, 1)) / 86400000);
+  if (activeRange === '1Y')  return 365;
+  return 999; // ALL
 }
 
 function getRangeLabel(rows) {
@@ -560,10 +642,10 @@ function renderAll() {
   const filtered = filterByRange(allRows, activeRange);
   document.getElementById('summary-range').textContent = getRangeLabel(filtered);
   renderCards(filtered);
+  renderStackedArea(filtered);
   renderTrend(filtered);
   renderJobsTable(filtered);
-  renderNonBillableChart(filtered);
-  renderNonBillableTrend(filtered);
+  renderNonBillablePhaseChart(filtered);
   renderNonBillableJobs(filtered);
 }
 
@@ -584,14 +666,162 @@ function renderCards(rows) {
   set('c-ot-bill-pct', billable ? pct(otBillable / billable) + '<span class="card-unit">%</span>' : '—');
 }
 
-// ── S2: BILLABLE TREND ─────────────────────────────────────────────────────
+// ── S2: STACKED AREA — 5 series with toggles ─────────────────────────────
+const SERIES_VISIBLE = [true, true, true, false, false]; // Total, Billable, NB, Bill OT, NB OT
+
+function toggleSeries(idx) {
+  SERIES_VISIBLE[idx] = !SERIES_VISIBLE[idx];
+  const el = document.querySelector(`.series-toggle[data-series="${idx}"]`);
+  el.classList.toggle('off', !SERIES_VISIBLE[idx]);
+  if (stackedChart) {
+    stackedChart.data.datasets[idx].hidden = !SERIES_VISIBLE[idx];
+    stackedChart.update();
+  }
+}
+
+function renderStackedArea(rows) {
+  const empty  = document.getElementById('stacked-empty');
+  const canvas = document.getElementById('stacked-chart');
+  if (!rows.length) { empty.style.display = 'flex'; canvas.style.display = 'none'; return; }
+  empty.style.display = 'none'; canvas.style.display = 'block';
+
+  const useDaily = getRangeDays() <= 60;
+  let labels, totalData, billData, nbData, billOTData, nbOTData;
+
+  if (useDaily) {
+    const days = {};
+    rows.forEach(r => {
+      const key = fmtDateShort(r.workDate);
+      if (!days[key]) days[key] = { total: 0, bill: 0, nb: 0, billOT: 0, nbOT: 0, sortKey: r.workDate.getTime() };
+      days[key].total  += r.totalHours;
+      days[key].bill   += r.isBillable  ? r.totalHours : 0;
+      days[key].nb     += !r.isBillable ? r.totalHours : 0;
+      days[key].billOT += r.isBillable  ? r.otHours    : 0;
+      days[key].nbOT   += !r.isBillable ? r.otHours    : 0;
+    });
+    labels     = Object.keys(days).sort((a, b) => days[a].sortKey - days[b].sortKey);
+    totalData  = labels.map(k => +days[k].total.toFixed(1));
+    billData   = labels.map(k => +days[k].bill.toFixed(1));
+    nbData     = labels.map(k => +days[k].nb.toFixed(1));
+    billOTData = labels.map(k => +days[k].billOT.toFixed(1));
+    nbOTData   = labels.map(k => +days[k].nbOT.toFixed(1));
+  } else {
+    const weeks = {};
+    rows.forEach(r => {
+      const wk = weekEnd(r.workDate);
+      if (!weeks[wk]) weeks[wk] = { total: 0, bill: 0, nb: 0, billOT: 0, nbOT: 0 };
+      weeks[wk].total  += r.totalHours;
+      weeks[wk].bill   += r.isBillable  ? r.totalHours : 0;
+      weeks[wk].nb     += !r.isBillable ? r.totalHours : 0;
+      weeks[wk].billOT += r.isBillable  ? r.otHours    : 0;
+      weeks[wk].nbOT   += !r.isBillable ? r.otHours    : 0;
+    });
+    labels     = completeWeekKeys(weeks);
+    totalData  = labels.map(w => +weeks[w].total.toFixed(1));
+    billData   = labels.map(w => +weeks[w].bill.toFixed(1));
+    nbData     = labels.map(w => +weeks[w].nb.toFixed(1));
+    billOTData = labels.map(w => +weeks[w].billOT.toFixed(1));
+    nbOTData   = labels.map(w => +weeks[w].nbOT.toFixed(1));
+  }
+
+  if (stackedChart) stackedChart.destroy();
+  stackedChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Total Hours',
+          data: totalData,
+          hidden: !SERIES_VISIBLE[0],
+          borderColor: 'rgba(255,255,255,0.6)',
+          backgroundColor: 'rgba(255,255,255,0)',
+          borderWidth: 2,
+          borderDash: [4, 3],
+          pointRadius: useDaily ? 3 : 2,
+          pointBackgroundColor: '#ffffff',
+          pointBorderColor: '#0d1117',
+          pointBorderWidth: 1,
+          fill: false,
+          tension: .3,
+          order: 0,
+        },
+        {
+          label: 'Billable Hours',
+          data: billData,
+          hidden: !SERIES_VISIBLE[1],
+          borderColor: '#4a8fd4',
+          backgroundColor: 'rgba(74,143,212,0.2)',
+          borderWidth: 2,
+          pointRadius: useDaily ? 3 : 2,
+          pointBackgroundColor: '#4a8fd4',
+          pointBorderColor: '#0d1117',
+          pointBorderWidth: 2,
+          fill: 'origin',
+          tension: .3,
+          order: 1,
+        },
+        {
+          label: 'Non-Billable Hours',
+          data: nbData,
+          hidden: !SERIES_VISIBLE[2],
+          borderColor: '#64748b',
+          backgroundColor: 'rgba(100,116,139,0.15)',
+          borderWidth: 2,
+          pointRadius: useDaily ? 3 : 2,
+          pointBackgroundColor: '#64748b',
+          pointBorderColor: '#0d1117',
+          pointBorderWidth: 2,
+          fill: 'origin',
+          tension: .3,
+          order: 2,
+        },
+        {
+          label: 'Billable OT',
+          data: billOTData,
+          hidden: !SERIES_VISIBLE[3],
+          borderColor: '#e05a5a',
+          backgroundColor: 'rgba(224,90,90,0.15)',
+          borderWidth: 2,
+          borderDash: [3, 3],
+          pointRadius: useDaily ? 3 : 2,
+          pointBackgroundColor: '#e05a5a',
+          pointBorderColor: '#0d1117',
+          pointBorderWidth: 2,
+          fill: 'origin',
+          tension: .3,
+          order: 3,
+        },
+        {
+          label: 'Non-Billable OT',
+          data: nbOTData,
+          hidden: !SERIES_VISIBLE[4],
+          borderColor: '#c8943a',
+          backgroundColor: 'rgba(200,148,58,0.1)',
+          borderWidth: 2,
+          borderDash: [3, 3],
+          pointRadius: useDaily ? 3 : 2,
+          pointBackgroundColor: '#c8943a',
+          pointBorderColor: '#0d1117',
+          pointBorderWidth: 2,
+          fill: 'origin',
+          tension: .3,
+          order: 4,
+        }
+      ]
+    },
+    options: { ...chartOptions({ yCallback: v => v + ' h', useDaily }), plugins: { ...chartOptions({ yCallback: v => v + ' h', useDaily }).plugins, legend: { display: false } } }
+  });
+}
+
+// ── S3: BILLABLE % TREND ───────────────────────────────────────────────────
 function renderTrend(rows) {
   const empty  = document.getElementById('trend-empty');
   const canvas = document.getElementById('trend-chart');
   if (!rows.length) { empty.style.display = 'flex'; canvas.style.display = 'none'; return; }
   empty.style.display = 'none'; canvas.style.display = 'block';
 
-  const useDaily = ['1W','2W','1M'].includes(activeRange);
+  const useDaily = getRangeDays() <= 60;
   const target   = parseFloat(document.getElementById('target-pct').value) || 75;
   let labels, data;
 
@@ -663,33 +893,48 @@ function renderJobsTable(rows) {
   const jobs = {};
   billRows.forEach(r => {
     const key = r.jobName || r.job;
-    if (!jobs[key]) jobs[key] = { hours: 0, records: 0 };
+    if (!jobs[key]) jobs[key] = { hours: 0, otHours: 0, records: 0 };
     jobs[key].hours   += r.totalHours;
+    jobs[key].otHours += r.otHours;
     jobs[key].records += 1;
   });
-  const sorted = Object.entries(jobs).sort((a, b) => b[1].hours - a[1].hours).slice(0, 10);
+  const sorted = Object.entries(jobs).sort((a, b) => b[1].hours - a[1].hours).slice(0, 15);
   const max    = sorted[0][1].hours;
 
   wrap.innerHTML = `<table class="data-table">
     <thead><tr>
-      <th style="width:30px">#</th><th>Job</th>
-      <th class="num">Billable Hrs</th><th class="num">Records</th>
-      <th class="num">% of Billable</th><th style="width:110px"></th>
+      <th style="width:30px">#</th>
+      <th>Job</th>
+      <th class="num">Billable Hrs</th>
+      <th class="num">Billable OT Hrs</th>
+      <th class="num">OT % of Job</th>
+      <th class="num">Records</th>
+      <th style="width:180px; text-align:center">% of All Billable</th>
     </tr></thead>
-    <tbody>${sorted.map(([job, d], i) => `
-      <tr>
+    <tbody>${sorted.map(([job, d], i) => {
+      const otPct    = d.hours ? (d.otHours / d.hours * 100) : 0;
+      const sharePct = totalBillable ? (d.hours / totalBillable * 100) : 0;
+      const otColor  = otPct > 25 ? '#e05a5a' : otPct > 10 ? '#c8943a' : '#64748b';
+      return `<tr>
         <td><span class="rank-badge ${i < 3 ? 'top' : ''}">${i + 1}</span></td>
         <td>${job}</td>
         <td class="num">${fmt(d.hours)}</td>
+        <td class="num">${fmt(d.otHours)}</td>
+        <td class="num" style="color:${otColor}; font-weight:500">${otPct.toFixed(1)}%</td>
         <td class="num">${d.records.toLocaleString()}</td>
-        <td class="num">${totalBillable ? (d.hours / totalBillable * 100).toFixed(1) : '0.0'}%</td>
-        <td><div class="bar-wrap"><div class="mini-bar-bg"><div class="mini-bar" style="width:${(d.hours/max*100).toFixed(1)}%"></div></div></div></td>
-      </tr>`).join('')}
+        <td>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:3px;">
+            <span style="font-family:var(--mono); font-size:11px; color:var(--text2)">${sharePct.toFixed(1)}%</span>
+            <div class="mini-bar-bg" style="width:90%"><div class="mini-bar" style="width:${(d.hours/max*100).toFixed(1)}%"></div></div>
+          </div>
+        </td>
+      </tr>`;
+    }).join('')}
     </tbody></table>`;
 }
 
-// ── S4a: NON-BILLABLE PHASE BAR ────────────────────────────────────────────
-function renderNonBillableChart(rows) {
+// ── S4: NON-BILLABLE PHASE BAR ────────────────────────────────────────────
+function renderNonBillablePhaseChart(rows) {
   const nbEmpty = document.getElementById('nb-empty');
   const canvas  = document.getElementById('nb-chart');
   const nbRows  = rows.filter(r => !r.isBillable);
@@ -726,59 +971,6 @@ function renderNonBillableChart(rows) {
         y: { ticks: { color: '#94a3b8', font: { family: 'Source Sans 3', size: 10 } }, grid: { color: '#1e2535' } }
       }
     }
-  });
-}
-
-// ── S4b: WEEKLY NON-BILLABLE TREND ─────────────────────────────────────────
-function renderNonBillableTrend(rows) {
-  const empty  = document.getElementById('nb-trend-empty');
-  const canvas = document.getElementById('nb-trend-chart');
-  const nbRows = rows.filter(r => !r.isBillable);
-  if (!nbRows.length) { empty.style.display = 'flex'; canvas.style.display = 'none'; return; }
-  empty.style.display = 'none'; canvas.style.display = 'block';
-
-  const useDaily = ['1W','2W','1M'].includes(activeRange);
-  let labels, data;
-
-  if (useDaily) {
-    const days = {};
-    nbRows.forEach(r => {
-      const key = fmtDateShort(r.workDate);
-      if (!days[key]) days[key] = { total: 0, sortKey: r.workDate.getTime() };
-      days[key].total += r.totalHours;
-    });
-    labels = Object.keys(days).sort((a, b) => days[a].sortKey - days[b].sortKey);
-    data   = labels.map(k => +days[k].total.toFixed(1));
-  } else {
-    const weeks = {};
-    nbRows.forEach(r => {
-      const wk = weekEnd(r.workDate);
-      weeks[wk] = (weeks[wk] || 0) + r.totalHours;
-    });
-    labels = completeWeekKeys(weeks);
-    data   = labels.map(w => +weeks[w].toFixed(1));
-  }
-
-  if (nbTrendChart) nbTrendChart.destroy();
-  nbTrendChart = new Chart(canvas, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Non-Billable Hrs',
-        data,
-        borderColor: '#64748b',
-        backgroundColor: 'rgba(100,116,139,.1)',
-        borderWidth: 2,
-        pointRadius: useDaily ? 4 : 3,
-        pointBackgroundColor: '#64748b',
-        pointBorderColor: '#0d1117',
-        pointBorderWidth: 2,
-        fill: true,
-        tension: .3,
-      }]
-    },
-    options: chartOptions({ yCallback: v => v + ' h', useDaily })
   });
 }
 
@@ -838,9 +1030,24 @@ document.querySelectorAll('.slice-btn').forEach(btn => {
     document.querySelectorAll('.slice-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     activeRange = btn.dataset.range;
-    renderAll();
+    // Show/hide custom date inputs
+    const customInputs = document.getElementById('custom-inputs');
+    if (activeRange === 'CUSTOM') {
+      customInputs.style.display = 'flex';
+    } else {
+      customInputs.style.display = 'none';
+      renderAll();
+    }
   });
 });
+
+function applyCustomRange() {
+  const startVal = document.getElementById('custom-start').value;
+  const endVal   = document.getElementById('custom-end').value;
+  customStartDate = startVal ? parseLocalDate(startVal) : null;
+  customEndDate   = endVal   ? parseLocalDate(endVal)   : null;
+  renderAll();
+}
 document.getElementById('target-pct').addEventListener('input', () => {
   if (allRows.length) renderTrend(filterByRange(allRows, activeRange));
 });
